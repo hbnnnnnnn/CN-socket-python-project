@@ -46,7 +46,7 @@ def handle_client(client, addr):
 
         if len(msg_parts) == 2:
             if method == "GET":
-                if is_exists(file_name):
+                if is_available(file_name):
                     client.send(create_protocol("OK", file_name))
                     with open(file_name, 'rb') as output:
                         chunks = output.read(CHUNKS_SIZE)
