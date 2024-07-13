@@ -60,7 +60,7 @@ def handle_queue():
                         chunks = output.read(CHUNKS_SIZE)
                 client.sendall(create_protocol("END",""))
         else:
-            client.send(create_protocol("ERR", filename))
+            client.sendall(create_protocol("ERR", filename))
 
 
 def handle_client(client, addr):
