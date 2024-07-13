@@ -92,12 +92,12 @@ def start_server():
         server.bind((HOST, PORT))
         server.listen()
         print(f"Server is listening on {HOST}:{PORT}")
-        queue_handler = threading.Thread(target=handle_queue)
-        queue_handler.start()
         try:
             while True:
                 client, addr = server.accept()
                 client_handler = threading.Thread(target=handle_client, args=(client, addr))
+                queue_handler = threading.Thread(target=handle_queue)
+                queue_handler.start()
                 client_handler.start()
         except Exception as e:
             print(f"ERROR: {e}")
