@@ -17,6 +17,7 @@ HIGH = 4 * NORMAL
 CRITICAL = 10 * NORMAL
 
 stop_event = threading.Event()
+download_queue = queue.Queue()
 
 def load_file_list():
     with open(FILE_LIST_PATH, 'r') as file:
@@ -36,7 +37,6 @@ def create_protocol(method, data):
     protocol_message = header + message_encoded
     return protocol_message
 
-download_queue = queue.Queue()
 def update_queue(client, file_list):
     for file in file_list.splitlines():
         filename, priority = file.split()
