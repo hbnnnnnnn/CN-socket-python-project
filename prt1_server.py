@@ -29,7 +29,6 @@ def create_protocol(method, data):
     protocol_message = header + message_encoded
     return protocol_message
 
-
 def handle_client(client, addr):
     print(f"[NEW CONNECTION] A new connection is accepted from {addr}")
     file_list = load_file_list()
@@ -42,22 +41,19 @@ def handle_client(client, addr):
         message = client.recv(msg_length).decode(FORMAT)
         msg_parts = message.split()
         method = msg_parts[0]
-
-        if len(msg_parts) == 2:
-            filename = msg_parts[1]
-            if method == "GET":
-                if is_exist(filename):
-                    client.send(create_protocol("SEN", "OK"))
-                    with open(filename, 'rb') as output:
-                        chunks = output.read(CHUNKS_SIZE)
-                        while chunks:
-                            client.sendall(chunks)
-                            chunks = output.read(CHUNKS_SIZE)
-                else:
-                    client.send(create_protocol("ERR", filename))
-        #wrong format
-        else:
+        if method == "DIS"
             break
+        filename = msg_parts[1]
+        if method == "GET":
+            if is_exist(filename):
+                client.sendall(create_protocol("SEN", "OK"))
+                with open(filename, 'rb') as output:
+                    chunks = output.read(CHUNKS_SIZE)
+                    while chunks:
+                        client.send(chunks)
+                        chunks = output.read(CHUNKS_SIZE)
+            else:
+                client.sendall(create_protocol("ERR", filename))
     client.close()
 
 def start_server():
