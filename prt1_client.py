@@ -1,6 +1,7 @@
 import socket
 from tqdm import tqdm
 import re
+import os
 
 HEADER = 64
 FORMAT = 'utf-8'
