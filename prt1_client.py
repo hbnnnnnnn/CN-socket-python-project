@@ -74,9 +74,11 @@ def request_file(conn, file_name, file_size):
                 progress = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc=file_name)
 
                 with open(f"receive_{file_name}", 'wb') as file:
+                    data_received = 0
                     while True:
                         chunk = conn.recv(CHUNKS_SIZE)
-                        if not chunk:
+                        data_received += len(chunk)
+                        if data_received == file_size:
                             break
                         file.write(chunk)
                         progress.update(len(chunk))
