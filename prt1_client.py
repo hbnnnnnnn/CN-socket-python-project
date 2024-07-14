@@ -31,9 +31,12 @@ def apply_protocol(method, message):
     return header + message_encoded
 
 def disconnect(sig, frame, conn):
-    message = apply_protocol("END", "")
+    message = apply_protocol("DIS", "")
     conn.sendall(message)
     conn.close()
+    
+    print("Disconnect successfully!")
+    
     sys.exit(0)
 
 def setup_signal_handler(conn):
@@ -87,12 +90,15 @@ def request_file(conn, file_name, file_size):
                 with open(f"receive_{file_name}", 'wb') as file:
                     data_received = 0
                     while True:
-                        chunk = conn.recv(CHUNKS_SIZE)
-                        data_received += len(chunk)
-                        if data_received == file_size:
-                            break
-                        file.write(chunk)
-                        progress.update(len(chunk))
+                        try:
+                            chunk = conn.recv(CHUNKS_SIZE)
+                            data_received += len(chunk)
+                            if data_received == file_size:
+                                break
+                            file.write(chunk)
+                            progress.update(len(chunk))
+                        except:
+                            progress.close()
                 progress.close()
 
                 print(f"File '{file_name}' received successfully!")
@@ -109,7 +115,7 @@ def initiate_connection():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
         client.connect((HOST, PORT))
         setup_signal_handler(client)
-        
+
         file_list = get_file_list(client)
 
         if file_list:
