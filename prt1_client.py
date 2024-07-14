@@ -1,7 +1,8 @@
 import socket
 from tqdm import tqdm
 import re
-import os
+import sys
+import signal
 
 HEADER = 64
 FORMAT = 'utf-8'
@@ -19,14 +20,6 @@ SIZE = {
     "GB": 1024 * 1024 * 1024
 }
 
-def split_number_unit(s):
-    match = re.match(r"(\d+)([a-zA-Z]+)", s)
-    if match:
-        number = int(match.groups()[0])
-        unit = match.groups()[1]
-        return number * SIZE.get(unit, 1)
-    return None
-
 def apply_protocol(method, message):
     message = f"{method}{DELIMITER}{message}"
     message_encoded = message.encode(FORMAT)
@@ -36,6 +29,23 @@ def apply_protocol(method, message):
     header += b' ' * (HEADER - len(header))
 
     return header + message_encoded
+
+def disconnect(sig, frame, conn):
+    message = apply_protocol("END", "")
+    conn.sendall(message)
+    conn.close()
+    sys.exit(0)
+
+def setup_signal_handler(conn):
+    signal.signal(signal.SIGINT, lambda sig, frame: disconnect(sig, frame, conn))
+    
+def split_number_unit(s):
+    match = re.match(r"(\d+)([a-zA-Z]+)", s)
+    if match:
+        number = int(match.groups()[0])
+        unit = match.groups()[1]
+        return number * SIZE.get(unit, 1)
+    return None
 
 def get_complete_message(conn, message_length):
     data = b''
@@ -94,11 +104,12 @@ def request_file(conn, file_name, file_size):
         print(f"Error requesting file: {e}")
         return False
 
-            
 def initiate_connection():
     global DOWNLOADED_TRACKER
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
         client.connect((HOST, PORT))
+        setup_signal_handler(client)
+        
         file_list = get_file_list(client)
 
         if file_list:
