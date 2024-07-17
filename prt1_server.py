@@ -59,7 +59,7 @@ def handle_client(client, addr):
                                 chunk = output.read(CHUNK_SIZE)
                         print(f"[SEND] Sent {filename} to {addr} successfully!")
                     else:
-                        client.send(apply_protocol("ERR", filename))
+                        client.sendall(apply_protocol("ERR", filename))
                         print(f"[ERROR] {filename} requested from {addr} does not exist!")
                         
         #wrong format
