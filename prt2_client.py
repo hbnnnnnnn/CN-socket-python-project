@@ -3,6 +3,7 @@ from tqdm import tqdm
 import re
 import sys
 import signal
+import threading
 
 HEADER = 64
 FORMAT = "utf-8"
@@ -12,6 +13,14 @@ HOST = socket.gethostbyname(socket.gethostname())
 INPUT_FILE = "input.txt"
 DELIMITER = ' '
 DOWNLOADED_TRACKER = 0
+
+PRIORITY = {
+    "NORMAL": 1,
+    "HIGH": 4,
+    "CRITICAL": 10
+}
+
+DOWNLOADS = []
 
 def apply_protocol(method, message):
     message = f"{method}{DELIMITER}{message}"
@@ -59,49 +68,87 @@ def get_file_list(conn):
         print(f"Error getting file list: {e}")
         return None
 
-def request_files(conn, file_name, priority):
-    try:
-        request_message = apply_protocol("GET", file_name + DELIMITER + priority)
-        conn.sendall(request_message)
+def request_file(conn, file_name, priority="NORMAL"):
+    request = f"{file_name}{DELIMITER}{priority}"
+    conn.sendall(apply_protocol("GET", request))
 
-        header = conn.recv(HEADER).decode(FORMAT)
-        if header.startswith("HEAD"):
-            message_length = int(header[5:])
-            message = get_complete_message(conn, message_length).decode(FORMAT)
-            method, status, file_size = message.split(' ', 2)
-            file_size = int(file_size)
+def receive_file(conn):
+    download = []
+    bars = []
+    while True:
+        try:
+            header = conn.recv(HEADER).decode(FORMAT)
+            if header.startswith("HEAD"):
+                message_length = int(header[5:])
+                message = get_complete_message(conn, message_length).decode(FORMAT)
+                method = message.split()[0]
 
-            if method == "SEN" and status == "OK":
-                progress = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc=file_name)
+                if method == "SEN":
+                    tag = message.split()[1]
 
-                with open(f"receive_{file_name}", 'wb') as file:
-                    data_received = 0
-                    while True:
-                        try:
-                            chunk = conn.recv(CHUNK_SIZE)
-                            data_received += len(chunk)
-                            if data_received == file_size:
-                                break
-                            file.write(chunk)
-                            progress.update(len(chunk))
-                        except:
-                            progress.close()
-                progress.close()
+                    if tag == "OK":
+                        file_name, file_size = message.split()[2:]
+                        file_size = int(file_size)
 
-                print(f"File '{file_name}' received successfully!")
-                return True
-            elif method == "ERR":
-                print(f"Error: File '{file_name}' does not exist on the server.")
-                return False
-    except Exception as e:
-        print(f"Error requesting file: {e}")
-        return False
+                        progress = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc=file_name)
+
+                        DOWNLOADS.append([file_name, progress])
+                    
+                    if tag == "END":
+                        pass
+
+                    # with open(f"receive_{file_name}", 'wb') as file:
+                    #     data_received = 0
+                    #     while True:
+                    #         try:
+                    #             header 
+                    #             chunk = conn.recv(CHUNK_SIZE)
+                    #             data_received += len(chunk)
+                    #             if data_received == file_size:
+                    #                 break
+                    #             file.write(chunk)
+                    #             progress.update(len(chunk))
+                    #         except:
+                    #             progress.close()
+                    # progress.close()
+
+                    # print(f"File '{file_name}' received successfully!")
+                    # return True
+                elif method == "SEF":
+                    file_name = message.split()[1]
+                    data = conn.recv(CHUNK_SIZE)
+
+                    with open(f"receive_{file_name}", 'ab') as file:
+                        file.write(data)
+
+                    for file in DOWNLOADS:
+                        if file[0] == file_name:
+                            file[1].update(len(data))
+
+                elif method == "ERR":
+                    file_name = message.split([1])
+                    print(f"Error: File '{file_name}' does not exist on the server.")
+                    
+        except Exception as e:
+            print(f"Error requesting file: {e}")
+        
+    
+def update_input_file(conn, file_name):
+    with open(INPUT_FILE, 'r') as file:
+        contents = [line.rstrip() for line in file]
+
+    if len(contents) != DOWNLOADED_TRACKER:
+        start_downloading_from = DOWNLOADED_TRACKER
+        for line in contents[start_downloading_from:]:
+            file_name, priority = line.split(DELIMITER, 1)
+            request_file(conn, file_name, priority)
+            DOWNLOADS.append(file_name)
+            DOWNLOADED_TRACKER += 1
+
+    threading.Timer(2, update_input_file).start()
 
 def initiate_connection():
     global DOWNLOADED_TRACKER
-
-    to_download = []
-    progress_bars = []
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
         client.connect((HOST, PORT))
@@ -110,7 +157,7 @@ def initiate_connection():
         file_list = get_file_list(client)
 
         if file_list:
-            print("File list received:")
+            print("Available files on server:")
             print(file_list + '\n')
             file_sizes = dict(item.split(DELIMITER) for item in file_list.split('\n'))
         else:
