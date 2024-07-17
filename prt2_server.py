@@ -68,7 +68,7 @@ def process_list(client, addr, download_list):
                     for _ in range(priority):
                         chunk = output.read(CHUNK_SIZE)
                         if not chunk:
-                            client.sendall(apply_protocol("SEN","END"))
+                            client.sendall(apply_protocol("SEN","END" + DELIMITER + filename))
                             print(f"[SEND] Sent {filename} to {addr} successfully!")
                             download_list.pop(i)
                             i -= 1
