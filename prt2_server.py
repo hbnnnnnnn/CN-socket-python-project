@@ -52,7 +52,7 @@ def update_list(client, addr, download_list):
                     download_list.append((filename, priority, sent))
                 else:
                     print(f"[ERROR] {filename} requested from {addr} does not exist!")
-                    client.send(apply_protocol("ERR", filename))
+                    client.sendall(apply_protocol("ERR", filename))
         except Exception as e: 
             print(f"Error {e}")
             continue
