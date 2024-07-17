@@ -13,13 +13,6 @@ INPUT_FILE = "input.txt"
 DELIMITER = ' '
 DOWNLOADED_TRACKER = 0
 
-SIZE = {
-    "B": 1,
-    "KB": 1024,
-    "MB": 1024 * 1024,
-    "GB": 1024 * 1024 * 1024
-}
-
 def apply_protocol(method, message):
     message = f"{method}{DELIMITER}{message}"
     message_encoded = message.encode(FORMAT)
@@ -31,24 +24,17 @@ def apply_protocol(method, message):
     return header + message_encoded
 
 def disconnect(sig, frame, conn):
-    message = apply_protocol("DIS", "")
-    conn.sendall(message)
-    conn.close()
-    
+    # message = apply_protocol("DIS", "")
+    # conn.sendall(message)
+    try:
+        conn.close()
+    except:
+        pass
     print("Disconnect successfully!")
-    
     sys.exit(0)
 
 def setup_signal_handler(conn):
     signal.signal(signal.SIGINT, lambda sig, frame: disconnect(sig, frame, conn))
-    
-def split_number_unit(s):
-    match = re.match(r"(\d+)([a-zA-Z]+)", s)
-    if match:
-        number = int(match.groups()[0])
-        unit = match.groups()[1]
-        return number * SIZE.get(unit, 1)
-    return None
 
 def get_complete_message(conn, message_length):
     data = b''
@@ -73,7 +59,7 @@ def get_file_list(conn):
         print(f"Error getting file list: {e}")
         return None
 
-def request_file(conn, file_name, file_size):
+def request_file(conn, file_name):
     try:
         request_message = apply_protocol("GET", file_name)
         conn.sendall(request_message)
@@ -82,7 +68,8 @@ def request_file(conn, file_name, file_size):
         if header.startswith("HEAD"):
             message_length = int(header[5:])
             message = get_complete_message(conn, message_length).decode(FORMAT)
-            method, status = message.split(' ', 1)
+            method, status, file_size = message.split(' ', 2)
+            file_size = int(file_size)
 
             if method == "SEN" and status == "OK":
                 progress = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc=file_name)
@@ -133,10 +120,8 @@ def initiate_connection():
             start_downloading_from = DOWNLOADED_TRACKER
             for line in contents[start_downloading_from:]:
                 file_name = line
-                file_size = file_sizes.get(file_name)
-                file_size = split_number_unit(file_size)
 
-                successful = request_file(client, file_name, file_size)
+                successful = request_file(client, file_name)
                 
                 if successful:
                     DOWNLOADED_TRACKER += 1
