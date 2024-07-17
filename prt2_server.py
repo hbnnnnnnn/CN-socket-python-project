@@ -48,7 +48,7 @@ def update_list(client, addr, download_list):
                 filename, priority = data.split(DELIMITER)
                 sent = 0
                 if file_exists(filename):
-                    client.sendall(apply_protocol("SEN", "OK" + DELIMITER + str(os.path.getsize(filename))))
+                    client.sendall(apply_protocol("SEN", "OK" + DELIMITER + filename + DELIMITER + str(os.path.getsize(filename))))
                     download_list.append((filename, priority, sent))
                 else:
                     print(f"[ERROR] {filename} requested from {addr} does not exist!")
@@ -73,7 +73,8 @@ def process_list(client, addr, download_list):
                             download_list.pop(i)
                             i -= 1
                             break
-                        client.sendall(apply_protocol("SEF", filename + DELIMITER + chunk))
+                        client.sendall(apply_protocol("SEF", filename))
+                        client.sendall(chunk)
                     
         except Exception as e: 
             print(f"Error {e}")
