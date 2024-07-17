@@ -5,7 +5,7 @@ import sys
 
 HEADER = 64
 FORMAT = 'utf-8'
-CHUNKS_SIZE = 1024
+CHUNK_SIZE = 1024
 PORT = 1603
 HOST = socket.gethostbyname(socket.gethostname())
 FILE_LIST_PATH = 'file_list.txt'
@@ -15,12 +15,12 @@ def load_file_list():
     with open(FILE_LIST_PATH, 'r') as file:
         return file.read()
 
-def is_exist(filename):
+def file_exists(filename):
     with open(FILE_LIST_PATH, 'r') as file:
         file_list = [line.split()[0] for line in file.read().splitlines()]
     return filename in file_list and os.path.exists(FILE_LIST_PATH)
 
-def create_protocol(method, data):
+def apply_protocol(method, data):
     message = f"{method}{DELIMITER}{data}"
     message_encoded = message.encode(FORMAT)
     msg_length = len(message_encoded)
@@ -29,31 +29,43 @@ def create_protocol(method, data):
     protocol_message = header + message_encoded
     return protocol_message
 
+
 def handle_client(client, addr):
     print(f"[NEW CONNECTION] A new connection is accepted from {addr}")
+    
     file_list = load_file_list()
-    client.sendall(create_protocol("SEN", file_list))
+    client.sendall(apply_protocol("SEN", file_list))
     while True:
-        str_header = client.recv(HEADER).decode(FORMAT)
-        if not str_header:
+        try:
+            str_header = client.recv(HEADER).decode(FORMAT)
+            if not str_header:
+                break
+            msg_length = int(str_header.split()[1])
+            message = client.recv(msg_length).decode(FORMAT)
+            msg_parts = message.split()
+            method = msg_parts[0]
+
+            if len(msg_parts) == 2:
+                filename = msg_parts[1]
+                if method == "GET":
+                    if file_exists(filename):
+                        print(f"[SEND] Sending {filename} to {addr}...")
+                        client.send(apply_protocol("SEN", "OK" + DELIMITER + str(os.path.getsize(filename))))
+                        
+                        with open(filename, 'rb') as output:
+                            chunk = output.read(CHUNK_SIZE)
+                            while chunk:
+                                client.sendall(chunk)
+                                chunk = output.read(CHUNK_SIZE)
+                        print(f"[SEND] Sent {filename} to {addr} successfully!")
+                    else:
+                        client.send(apply_protocol("ERR", filename))
+                        print(f"[ERROR] {filename} requested from {addr} does not exist!")
+                        
+        #wrong format
+        except Exception as e:
+            print(f"[DISCONNECTED] {addr} has disconnected!")
             break
-        msg_length = int(str_header.split()[1])
-        message = client.recv(msg_length).decode(FORMAT)
-        msg_parts = message.split()
-        method = msg_parts[0]
-        if method == "DIS"
-            break
-        filename = msg_parts[1]
-        if method == "GET":
-            if is_exist(filename):
-                client.sendall(create_protocol("SEN", "OK"))
-                with open(filename, 'rb') as output:
-                    chunks = output.read(CHUNKS_SIZE)
-                    while chunks:
-                        client.send(chunks)
-                        chunks = output.read(CHUNKS_SIZE)
-            else:
-                client.sendall(create_protocol("ERR", filename))
     client.close()
 
 def start_server():
