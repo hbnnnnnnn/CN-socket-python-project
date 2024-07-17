@@ -72,7 +72,7 @@ def request_file(conn, file_name, priority="NORMAL"):
     request = f"{file_name}{DELIMITER}{priority}"
     conn.sendall(apply_protocol("GET", request))
 
-def receive_file(conn):
+def respond_to_server(conn):
     download = []
     bars = []
     while True:
@@ -95,25 +95,14 @@ def receive_file(conn):
                         DOWNLOADS.append([file_name, progress])
                     
                     if tag == "END":
-                        pass
+                        file_name = message.split()[2]
 
-                    # with open(f"receive_{file_name}", 'wb') as file:
-                    #     data_received = 0
-                    #     while True:
-                    #         try:
-                    #             header 
-                    #             chunk = conn.recv(CHUNK_SIZE)
-                    #             data_received += len(chunk)
-                    #             if data_received == file_size:
-                    #                 break
-                    #             file.write(chunk)
-                    #             progress.update(len(chunk))
-                    #         except:
-                    #             progress.close()
-                    # progress.close()
-
-                    # print(f"File '{file_name}' received successfully!")
-                    # return True
+                        for file in DOWNLOADS:
+                            if file[0] == file_name:
+                                file[1].close()
+                                DOWNLOADS.remove(file)
+                                break
+                            
                 elif method == "SEF":
                     file_name = message.split()[1]
                     data = conn.recv(CHUNK_SIZE)
@@ -124,6 +113,7 @@ def receive_file(conn):
                     for file in DOWNLOADS:
                         if file[0] == file_name:
                             file[1].update(len(data))
+                            break
 
                 elif method == "ERR":
                     file_name = message.split([1])
@@ -164,18 +154,11 @@ def initiate_connection():
             print("Failed to retrieve file list.")
             return
 
-        while True:
-            with open(INPUT_FILE, 'r') as file:
-                contents = [line.rstrip() for line in file]
+        input_file_handler = threading.Thread(target=update_input_file, args=(client, INPUT_FILE))
+        server_handller = threading.Thread(target=respond_to_server, args=(client,))
 
-            start_downloading_from = DOWNLOADED_TRACKER
-            for line in contents[start_downloading_from:]:
-                file_name, priority = line.split(DELIMITER, 1)
-
-                successful = request_file(client, file_name, priority)
-                
-                if successful:
-                    DOWNLOADED_TRACKER += 1
+        input_file_handler.start()
+        server_handller.start()
 
 if __name__ == "__main__":
     print("Connecting to server...")
