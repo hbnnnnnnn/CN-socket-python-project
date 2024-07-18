@@ -33,8 +33,6 @@ def apply_protocol(method, message):
     return header + message_encoded
 
 def disconnect(sig, frame, conn):
-    # message = apply_protocol("DIS", "")
-    # conn.sendall(message)
     try:
         conn.close()
     except:
@@ -68,13 +66,11 @@ def get_file_list(conn):
         print(f"Error getting file list: {e}")
         return None
 
-def request_file(conn, file_name, priority="NORMAL"):
+def request_file(conn, file_name, priority):
     request = f"{file_name}{DELIMITER}{priority}"
     conn.sendall(apply_protocol("GET", request))
 
 def respond_to_server(conn):
-    download = []
-    bars = []
     while True:
         try:
             header = conn.recv(HEADER).decode(FORMAT)
@@ -102,7 +98,7 @@ def respond_to_server(conn):
                                 file[1].close()
                                 DOWNLOADS.remove(file)
                                 break
-                            
+
                 elif method == "SEF":
                     file_name = message.split()[1]
                     data = conn.recv(CHUNK_SIZE)
@@ -119,11 +115,12 @@ def respond_to_server(conn):
                     file_name = message.split([1])
                     print(f"Error: File '{file_name}' does not exist on the server.")
                     
-        except Exception as e:
-            print(f"Error requesting file: {e}")
+        except:
+            continue
         
-    
-def update_input_file(conn, file_name):
+def update_input_file(conn):
+    global DOWNLOADED_TRACKER
+
     with open(INPUT_FILE, 'r') as file:
         contents = [line.rstrip() for line in file]
 
@@ -131,11 +128,12 @@ def update_input_file(conn, file_name):
         start_downloading_from = DOWNLOADED_TRACKER
         for line in contents[start_downloading_from:]:
             file_name, priority = line.split(DELIMITER, 1)
+            print(file_name)
+            print(priority)
             request_file(conn, file_name, priority)
-            DOWNLOADS.append(file_name)
             DOWNLOADED_TRACKER += 1
 
-    threading.Timer(2, update_input_file).start()
+    threading.Timer(2, update_input_file, [conn]).start()
 
 def initiate_connection():
     global DOWNLOADED_TRACKER
@@ -154,12 +152,11 @@ def initiate_connection():
             print("Failed to retrieve file list.")
             return
 
-        input_file_handler = threading.Thread(target=update_input_file, args=(client, INPUT_FILE))
         server_handller = threading.Thread(target=respond_to_server, args=(client,))
-
-        input_file_handler.start()
         server_handller.start()
 
+        update_input_file(client)
+    
 if __name__ == "__main__":
     print("Connecting to server...")
     initiate_connection()
