@@ -115,7 +115,8 @@ def respond_to_server(conn):
                     file_name = message.split([1])
                     print(f"Error: File '{file_name}' does not exist on the server.")
                     
-        except:
+        except Exception as e:
+            print(f"Error in respond_to_server: {e}")
             continue
         
 def update_input_file(conn):
@@ -147,16 +148,16 @@ def initiate_connection():
         if file_list:
             print("Available files on server:")
             print(file_list + '\n')
-            file_sizes = dict(item.split(DELIMITER) for item in file_list.split('\n'))
         else:
             print("Failed to retrieve file list.")
             return
 
-        server_handller = threading.Thread(target=respond_to_server, args=(client,))
-        server_handller.start()
+        server_handler = threading.Thread(target=respond_to_server, args=(client,))
+        server_handler.start()
 
         update_input_file(client)
-    
+        server_handler.join()
+
 if __name__ == "__main__":
     print("Connecting to server...")
     initiate_connection()
