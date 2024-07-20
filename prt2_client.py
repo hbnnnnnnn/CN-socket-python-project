@@ -152,7 +152,7 @@ def initiate_connection():
             print("Failed to retrieve file list.")
             return
 
-        server_handler = threading.Thread(target=respond_to_server, args=(client,))
+        server_handler = threading.Thread(target=respond_to_server, args=(client))
         server_handler.start()
 
         update_input_file(client)
