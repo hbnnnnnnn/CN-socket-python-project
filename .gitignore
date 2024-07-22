@@ -1,0 +1,10 @@
+#Input file
+input.txt
+
+#File list
+file_list.txt
+
+#Database folder
+database/**
+
+.gitignore

@@ -4,6 +4,7 @@ import re
 import sys
 import signal
 import threading
+import time
 
 HEADER = 64
 FORMAT = "utf-8"
@@ -90,13 +91,14 @@ def respond_to_server(conn):
 
                         DOWNLOADS.append([file_name, progress])
                     
-                    if tag == "END":
+                    elif tag == "END":
+                        print("end")
                         file_name = message.split()[2]
 
-                        for file in DOWNLOADS:
+                        for i, file in DOWNLOADS:
                             if file[0] == file_name:
                                 file[1].close()
-                                DOWNLOADS.remove(file)
+                                DOWNLOADS.pop(i)
                                 break
 
                 elif method == "SEF":
@@ -119,7 +121,7 @@ def respond_to_server(conn):
             print(f"Error in respond_to_server: {e}")
             continue
         
-def update_input_file(conn):
+def process_input_file(conn):
     global DOWNLOADED_TRACKER
 
     with open(INPUT_FILE, 'r') as file:
@@ -129,12 +131,13 @@ def update_input_file(conn):
         start_downloading_from = DOWNLOADED_TRACKER
         for line in contents[start_downloading_from:]:
             file_name, priority = line.split(DELIMITER, 1)
-            print(file_name)
-            print(priority)
             request_file(conn, file_name, priority)
             DOWNLOADED_TRACKER += 1
 
-    threading.Timer(2, update_input_file, [conn]).start()
+def update_input_file(conn):
+    while True:
+        process_input_file(conn)
+        time.sleep(2)
 
 def initiate_connection():
     global DOWNLOADED_TRACKER
@@ -152,11 +155,17 @@ def initiate_connection():
             print("Failed to retrieve file list.")
             return
 
-        server_handler = threading.Thread(target=respond_to_server, args=([client]))
+        server_handler = threading.Thread(target=respond_to_server, args=[client])
         server_handler.start()
 
-        update_input_file(client)
+        input_file_handler = threading.Thread(target=update_input_file, args=[client])
+        input_file_handler.start()
+
+        input_file_handler.join()
         server_handler.join()
+
+        client.close()
+        print("DISCONNECTED")
 
 if __name__ == "__main__":
     print("Connecting to server...")

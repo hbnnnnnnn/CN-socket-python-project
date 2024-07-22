@@ -21,9 +21,13 @@ def load_file_list():
         return file.read()
 
 def file_exists(filename):
+    if not os.path.exists(FILE_LIST_PATH):
+        return False
+
     with open(FILE_LIST_PATH, 'r') as file:
         file_list = [line.split()[0] for line in file.read().splitlines()]
-    return filename in file_list and os.path.exists(FILE_LIST_PATH)
+
+    return filename in file_list
 
 def apply_protocol(method, data):
     message = f"{method}{DELIMITER}{data}"
@@ -46,10 +50,13 @@ def update_list(client, addr, download_list):
             method, data = message.split(DELIMITER, 1)
             if method == "GET":
                 filename, priority = data.split(DELIMITER)
+                print (priority)
+                filepath = "database\\" + filename
+                #print(filepath)
                 sent = 0
                 if file_exists(filename):
-                    client.sendall(apply_protocol("SEN", "OK" + DELIMITER + filename + DELIMITER + str(os.path.getsize(filename))))
-                    download_list.append((filename, priority, sent))
+                    client.sendall(apply_protocol("SEN", "OK" + DELIMITER + filename + DELIMITER + str(os.path.getsize(filepath))))
+                    download_list.append([filename, priority, sent])
                 else:
                     print(f"[ERROR] {filename} requested from {addr} does not exist!")
                     client.sendall(apply_protocol("ERR", filename))
@@ -62,19 +69,25 @@ def process_list(client, addr, download_list):
         try:
             for i in range(len(download_list)):
                 filename, priority, sent = download_list[i]
-                with open(filename, 'rb') as output:
+                filepath = "database\\" + filename
+                done = False
+                with open(filepath, 'rb') as output:
                     output.seek(sent * CHUNK_SIZE)
                     priority = PRIORITY.get(priority, 0)
                     for _ in range(priority):
                         chunk = output.read(CHUNK_SIZE)
-                        if not chunk:
+                        client.sendall(apply_protocol("SEF", filename))
+                        client.sendall(chunk)
+                        sent += 1
+                        if sent * CHUNK_SIZE >= os.path.getsize(filepath):
                             client.sendall(apply_protocol("SEN","END" + DELIMITER + filename))
                             print(f"[SEND] Sent {filename} to {addr} successfully!")
                             download_list.pop(i)
+                            done = True
                             i -= 1
                             break
-                        client.sendall(apply_protocol("SEF", filename))
-                        client.sendall(chunk)
+                if not done: 
+                    download_list[i] = [filename, priority, sent]
                     
         except Exception as e: 
             print(f"Error {e}")
@@ -86,15 +99,15 @@ def handle_client(client, addr):
     file_list = load_file_list()
     client.sendall(apply_protocol("SEN", file_list))
     download_list = []
-    while True:
-        try:
-            list_process = threading.Thread(target=process_list,args=(client, addr, download_list))
-            list_update = threading.Thread(target=update_list,args=(client, addr, download_list))
-            list_process.start()
-            list_update.start()
-        except Exception as e:
-            print(f"Error: {e}")
-            break
+    try:
+        list_process = threading.Thread(target=process_list,args=(client, addr, download_list))
+        list_update = threading.Thread(target=update_list,args=(client, addr, download_list))
+        list_process.start()
+        list_update.start()
+        list_process.join()
+        list_update.join()
+    except Exception as e:
+        print(f"Error: {e}")
     print(f"[DISCONNECTED] {addr} has disconnected!")
     client.close()
 
