@@ -6,7 +6,7 @@ HEADER = 64
 FORMAT = 'utf-8'
 PORT = 1603
 HOST = socket.gethostbyname(socket.gethostname())
-FILE_LIST_PATH = 'file_list.txt'
+FILE_LIST_PATH = "file_list.txt"
 DELIMITER = ' '
 
 CHUNK_SIZE = 1024
@@ -17,8 +17,9 @@ PRIORITY = {
 }
 
 def load_file_list():
-    with open(FILE_LIST_PATH, 'r') as file:
-        return file.read()
+    if os.path.exists(FILE_LIST_PATH):
+        with open(FILE_LIST_PATH, 'r') as file:
+            return file.read()
 
 def file_exists(filename):
     if not os.path.exists(FILE_LIST_PATH):
@@ -38,8 +39,7 @@ def apply_protocol(method, data):
     protocol_message = header + message_encoded
     return protocol_message
 
-
-def update_list(client, addr, download_list):
+def update_list(client, addr, download_list, list_lock):
     while True:
         try:
             str_header = client.recv(HEADER).decode(FORMAT)
@@ -50,58 +50,64 @@ def update_list(client, addr, download_list):
             method, data = message.split(DELIMITER, 1)
             if method == "GET":
                 filename, priority = data.split(DELIMITER)
-                print (priority)
                 filepath = "database\\" + filename
-                #print(filepath)
                 sent = 0
                 if file_exists(filename):
                     client.sendall(apply_protocol("SEN", "OK" + DELIMITER + filename + DELIMITER + str(os.path.getsize(filepath))))
-                    download_list.append([filename, priority, sent])
+                    with list_lock:
+                        download_list.append((filename, priority, sent))
                 else:
                     print(f"[ERROR] {filename} requested from {addr} does not exist!")
                     client.sendall(apply_protocol("ERR", filename))
-        except Exception as e: 
+        except Exception as e:
             print(f"Error {e}")
             continue
 
-def process_list(client, addr, download_list):
+def process_list(client, addr, download_list, list_lock):
     while True:
         try:
-            for i in range(len(download_list)):
-                filename, priority, sent = download_list[i]
+            i = 0
+            while i < len(download_list):
+                with list_lock:
+                    filename, priority_key, sent = download_list[i]
+
                 filepath = "database\\" + filename
                 done = False
+
                 with open(filepath, 'rb') as output:
                     output.seek(sent * CHUNK_SIZE)
-                    priority = PRIORITY.get(priority, 0)
+                    priority = PRIORITY.get(priority_key, 0)
+
                     for _ in range(priority):
                         chunk = output.read(CHUNK_SIZE)
+                        if not chunk:
+                            client.sendall(apply_protocol("SEN", "END" + DELIMITER + filename))
+                            print(f"[SEND] Sent {filename} to {addr} successfully!")
+                            with list_lock:
+                                download_list.pop(i)
+                            done = True
+                            break
                         client.sendall(apply_protocol("SEF", filename))
                         client.sendall(chunk)
                         sent += 1
-                        if sent * CHUNK_SIZE >= os.path.getsize(filepath):
-                            client.sendall(apply_protocol("SEN","END" + DELIMITER + filename))
-                            print(f"[SEND] Sent {filename} to {addr} successfully!")
-                            download_list.pop(i)
-                            done = True
-                            i -= 1
-                            break
-                if not done: 
-                    download_list[i] = [filename, priority, sent]
-                    
-        except Exception as e: 
+
+                if not done:
+                    with list_lock:
+                        download_list[i] = (filename, priority_key, sent)
+                    i += 1
+        except Exception as e:
             print(f"Error {e}")
             continue
-
 
 def handle_client(client, addr):
     print(f"[NEW CONNECTION] A new connection is accepted from {addr}")
     file_list = load_file_list()
     client.sendall(apply_protocol("SEN", file_list))
     download_list = []
+    list_lock = threading.Lock()
     try:
-        list_process = threading.Thread(target=process_list,args=(client, addr, download_list))
-        list_update = threading.Thread(target=update_list,args=(client, addr, download_list))
+        list_process = threading.Thread(target=process_list, args=(client, addr, download_list, list_lock))
+        list_update = threading.Thread(target=update_list, args=(client, addr, download_list, list_lock))
         list_process.start()
         list_update.start()
         list_process.join()
