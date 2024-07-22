@@ -92,10 +92,9 @@ def respond_to_server(conn):
                         DOWNLOADS.append([file_name, progress])
                     
                     elif tag == "END":
-                        print("end")
                         file_name = message.split()[2]
 
-                        for i, file in DOWNLOADS:
+                        for i, file in enumerate(DOWNLOADS):
                             if file[0] == file_name:
                                 file[1].close()
                                 DOWNLOADS.pop(i)
