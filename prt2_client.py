@@ -1,10 +1,10 @@
 import socket
 from tqdm import tqdm
-import re
 import sys
 import signal
 import threading
 import time
+from time import sleep
 
 HEADER = 64
 FORMAT = "utf-8"
@@ -14,12 +14,6 @@ HOST = socket.gethostbyname(socket.gethostname())
 INPUT_FILE = "input.txt"
 DELIMITER = ' '
 DOWNLOADED_TRACKER = 0
-
-PRIORITY = {
-    "NORMAL": 1,
-    "HIGH": 4,
-    "CRITICAL": 10
-}
 
 DOWNLOADS = []
 
@@ -72,6 +66,7 @@ def request_file(conn, file_name, priority):
     conn.sendall(apply_protocol("GET", request))
 
 def respond_to_server(conn):
+    global DOWNLOADS
     while True:
         try:
             header = conn.recv(HEADER).decode(FORMAT)
@@ -87,7 +82,7 @@ def respond_to_server(conn):
                         file_name, file_size = message.split()[2:]
                         file_size = int(file_size)
 
-                        progress = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc=file_name)
+                        progress = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc=file_name, colour='green')
 
                         DOWNLOADS.append([file_name, progress])
                     
@@ -96,7 +91,12 @@ def respond_to_server(conn):
 
                         for i, file in enumerate(DOWNLOADS):
                             if file[0] == file_name:
+                                for item in DOWNLOADS:
+                                        item[1].clear()
                                 file[1].close()
+                                j = i + 1
+                                for item in DOWNLOADS[j:]:
+                                    item[1].pos -= 1
                                 DOWNLOADS.pop(i)
                                 break
 
@@ -113,7 +113,7 @@ def respond_to_server(conn):
                             break
 
                 elif method == "ERR":
-                    file_name = message.split([1])
+                    file_name = message.split()[1]
                     print(f"Error: File '{file_name}' does not exist on the server.")
                     
         except Exception as e:
