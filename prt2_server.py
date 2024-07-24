@@ -39,6 +39,15 @@ def apply_protocol(method, data):
     protocol_message = header + message_encoded
     return protocol_message
 
+def apply_protocol(method, data, chunk):
+    message = f"{method}{DELIMITER}{data}"
+    message_encoded = message.encode(FORMAT) + chunk
+    msg_length = len(message_encoded) + CHUNK_SIZE
+    header = f'HEAD {msg_length}'.encode(FORMAT)
+    header += b' ' * (HEADER - len(header))
+    protocol_message = header + message_encoded
+    return protocol_message
+
 def update_list(client, addr, download_list, list_lock):
     while True:
         try:
@@ -87,8 +96,7 @@ def process_list(client, addr, download_list, list_lock):
                                 download_list.pop(i)
                             done = True
                             break
-                        client.sendall(apply_protocol("SEF", filename))
-                        client.sendall(chunk)
+                        client.sendall(apply_protocol("SEF", filename, chunk))
                         sent += 1
 
                 if not done:
