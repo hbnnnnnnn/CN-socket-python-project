@@ -30,23 +30,25 @@ def file_exists(filename):
 
     return filename in file_list
 
-def apply_protocol(method, data):
-    message = f"{method}{DELIMITER}{data}"
-    message_encoded = message.encode(FORMAT)
-    msg_length = len(message_encoded)
-    header = f'HEAD {msg_length}'.encode(FORMAT)
-    header += b' ' * (HEADER - len(header))
-    protocol_message = header + message_encoded
-    return protocol_message
-
-def apply_protocol(method, data, chunk):
-    message = f"{method}{DELIMITER}{data}{DELIMITER}"
-    message_encoded = message.encode(FORMAT) + chunk
-    msg_length = len(message_encoded) + CHUNK_SIZE
-    header = f'HEAD {msg_length}'.encode(FORMAT)
-    header += b' ' * (HEADER - len(header))
-    protocol_message = header + message_encoded
-    return protocol_message
+def apply_protocol(method, data, chunk = b''):
+    if not chunk:
+        message = f"{method}{DELIMITER}{data}"
+        message_encoded = message.encode(FORMAT)
+        msg_length = len(message_encoded)
+        header = f'HEAD {msg_length}'.encode(FORMAT)
+        header += b' ' * (HEADER - len(header))
+        protocol_message = header + message_encoded
+        return protocol_message
+    else:
+        message = f"{method}{DELIMITER}{data}{DELIMITER}"
+        if len(chunk) < 1024:
+            chunk += b'\x00' * (1024 - len(chunk))
+        message_encoded = message.encode(FORMAT) + chunk
+        msg_length = len(message_encoded)
+        header = f'HEAD {msg_length}'.encode(FORMAT)
+        header += b' ' * (HEADER - len(header))
+        protocol_message = header + message_encoded
+        return protocol_message
 
 def update_list(client, addr, download_list, list_lock):
     while True:
@@ -59,7 +61,7 @@ def update_list(client, addr, download_list, list_lock):
             method, data = message.split(DELIMITER, 1)
             if method == "GET":
                 filename, priority = data.split(DELIMITER)
-                filepath = "database\\" + filename
+                filepath = filename
                 sent = 0
                 if file_exists(filename):
                     client.sendall(apply_protocol("SEN", "OK" + DELIMITER + filename + DELIMITER + str(os.path.getsize(filepath))))
@@ -80,7 +82,7 @@ def process_list(client, addr, download_list, list_lock):
                 with list_lock:
                     filename, priority_key, sent = download_list[i]
 
-                filepath = "database\\" + filename
+                filepath = filename
                 done = False
 
                 with open(filepath, 'rb') as output:
