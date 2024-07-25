@@ -49,7 +49,7 @@ def get_complete_message(conn, message_length):
 
 def get_file_list(conn):
     try: 
-        header = conn.recv(HEADER).decode(FORMAT)
+        header = get_complete_message(conn, HEADER).decode(FORMAT)
         message_length = int(header[5:])
         message = get_complete_message(conn, message_length).decode(FORMAT)
         method, file_list = message.split(' ', 1)
@@ -69,13 +69,14 @@ def respond_to_server(conn):
     global DOWNLOADS
     while True:
         try:
-            header = conn.recv(HEADER).decode(FORMAT)
+            header = get_complete_message(conn, HEADER).decode(FORMAT)
             if header.startswith("HEAD"):
                 message_length = int(header[5:])
-                message = get_complete_message(conn, message_length).decode(FORMAT)
-                method = message.split()[0]
+                message = get_complete_message(conn, message_length)
+                method = message[:3].decode(FORMAT)
 
                 if method == "SEN":
+                    message = message.decode(FORMAT)
                     tag = message.split()[1]
 
                     if tag == "OK":
@@ -101,9 +102,14 @@ def respond_to_server(conn):
                                 break
 
                 elif method == "SEF":
-                    file_name = message.split()[1]
-                    data = conn.recv(CHUNK_SIZE)
+                    data = message[-1024:]
+                    data = data.rstrip(b'\x00')
 
+                    message = message[:-1024]
+                    message = message.decode(FORMAT)
+
+                    file_name = message.split()[1]
+                    
                     with open(f"receive_{file_name}", 'ab') as file:
                         file.write(data)
 
@@ -113,6 +119,7 @@ def respond_to_server(conn):
                             break
 
                 elif method == "ERR":
+                    message = message.decode(FORMAT)
                     file_name = message.split()[1]
                     print(f"Error: File '{file_name}' does not exist on the server.")
                     
