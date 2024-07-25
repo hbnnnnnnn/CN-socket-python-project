@@ -40,7 +40,7 @@ def apply_protocol(method, data):
     return protocol_message
 
 def apply_protocol(method, data, chunk):
-    message = f"{method}{DELIMITER}{data}"
+    message = f"{method}{DELIMITER}{data}{DELIMITER}"
     message_encoded = message.encode(FORMAT) + chunk
     msg_length = len(message_encoded) + CHUNK_SIZE
     header = f'HEAD {msg_length}'.encode(FORMAT)
