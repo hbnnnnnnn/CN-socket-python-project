@@ -34,25 +34,28 @@ def apply_protocol(method, data, chunk = b''):
     if not chunk:
         message = f"{method}{DELIMITER}{data}"
         message_encoded = message.encode(FORMAT)
+        
         msg_length = len(message_encoded)
-        header = f'HEAD {msg_length}'.encode(FORMAT)
-        header += b' ' * (HEADER - len(header))
-        protocol_message = header + message_encoded
-        return protocol_message
     else:
         message = f"{method}{DELIMITER}{data}{DELIMITER}"
+
         if len(chunk) < 1024:
             chunk += b'\x00' * (1024 - len(chunk))
+
         message_encoded = message.encode(FORMAT) + chunk
         msg_length = len(message_encoded)
-        header = f'HEAD {msg_length}'.encode(FORMAT)
-        header += b' ' * (HEADER - len(header))
-        protocol_message = header + message_encoded
-        return protocol_message
+        
+    header = f'HEAD {msg_length}'.encode(FORMAT)
+    header += b' ' * (HEADER - len(header))
+
+    protocol_message = header + message_encoded
+
+    return protocol_message
 
 def update_list(client, addr, download_list, list_lock):
-    while True:
-        try:
+    try:
+        while True:
+        
             str_header = client.recv(HEADER).decode(FORMAT)
             if not str_header:
                 break
@@ -70,13 +73,14 @@ def update_list(client, addr, download_list, list_lock):
                 else:
                     print(f"[ERROR] {filename} requested from {addr} does not exist!")
                     client.sendall(apply_protocol("ERR", filename))
-        except Exception as e:
-            print(f"Error {e}")
-            continue
+    except Exception as e:
+        #print(f"Error {e}")
+        # continue
+        pass
 
 def process_list(client, addr, download_list, list_lock):
-    while True:
-        try:
+    try:
+         while True:
             i = 0
             while i < len(download_list):
                 with list_lock:
@@ -105,9 +109,9 @@ def process_list(client, addr, download_list, list_lock):
                     with list_lock:
                         download_list[i] = (filename, priority_key, sent)
                     i += 1
-        except Exception as e:
-            print(f"Error {e}")
-            continue
+    except Exception as e:
+        #print(f"Error {e}")
+        pass
 
 def handle_client(client, addr):
     print(f"[NEW CONNECTION] A new connection is accepted from {addr}")
