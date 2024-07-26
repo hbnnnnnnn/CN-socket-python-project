@@ -43,7 +43,8 @@ def disconnect(sig, frame):
     #     sys.stdout.flush()
     # os.system('cls')
     print()
-    print("Program terminated.")
+    print("  Disconnected from server.")
+    print("  Program terminated.")
     sys.exit(0)
 
 def setup_signal_handler():
@@ -246,7 +247,9 @@ def initiate_connection():
         if file_list:
             print("Available files on server:\n")
             for line in file_list.splitlines():
-                print('  - ' + line)
+                file_name = line.split()[0]
+                file_size = line.split()[1]
+                print('  - ' + file_name + (16 - len(file_name)) * " " + ": " + file_size)
 
             print()
             
@@ -272,7 +275,6 @@ def initiate_connection():
         server_handler.join()
 
         client.close()
-        print("DISCONNECTED")
 
 if __name__ == "__main__":
     print("Connecting to server...")
