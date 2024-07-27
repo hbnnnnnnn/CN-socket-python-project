@@ -2,6 +2,7 @@ import socket
 from tqdm import tqdm
 import sys
 import signal
+import os
 
 PORT = 1603
 HOST = socket.gethostbyname(socket.gethostname())
@@ -9,7 +10,7 @@ HOST = socket.gethostbyname(socket.gethostname())
 HEADER = 64
 FORMAT = "utf-8"
 CHUNKS_SIZE = 1024
-INPUT_FILE = "input.txt"
+INPUT_FILE = "input1.txt"
 DELIMITER = ' '
 
 DOWNLOADS = []
@@ -77,7 +78,14 @@ def request_file(conn, file_name):
             if method == "SEN" and status == "OK":
                 progress = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, colour='green', desc= 2 * ' ' + file_name)
 
-                with open(f"receive_{file_name}", 'wb') as file:
+                output_folder = "output"
+
+                if not os.path.exists(output_folder):
+                    os.makedirs(output_folder)
+
+                file_path = os.path.join(output_folder, f"receive_{file_name}")
+                              
+                with open(file_path, 'wb') as file:
                     data_received = 0
 
                     while True:
