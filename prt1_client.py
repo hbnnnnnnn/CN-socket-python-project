@@ -28,6 +28,9 @@ def apply_protocol(method, message):
     return header + message_encoded
 
 def disconnect(sig, frame, conn):
+    disconnect_msg = apply_protocol("DIS", "")
+    conn.sendall(disconnect_msg)
+    
     try:
         conn.close()
     except:
