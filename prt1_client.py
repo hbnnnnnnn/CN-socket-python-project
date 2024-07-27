@@ -1,17 +1,20 @@
 import socket
 from tqdm import tqdm
-import re
 import sys
 import signal
 
-HEADER = 64
-FORMAT = 'utf-8'
-CHUNKS_SIZE = 1024
 PORT = 1603
 HOST = socket.gethostbyname(socket.gethostname())
+
+HEADER = 64
+FORMAT = "utf-8"
+CHUNKS_SIZE = 1024
 INPUT_FILE = "input.txt"
 DELIMITER = ' '
-DOWNLOADED_TRACKER = 0
+
+DOWNLOADS = []
+PROCESSED_TRACKER = 0
+FILE_LIST = []
 
 def apply_protocol(method, message):
     message = f"{method}{DELIMITER}{message}"
@@ -24,13 +27,13 @@ def apply_protocol(method, message):
     return header + message_encoded
 
 def disconnect(sig, frame, conn):
-    # message = apply_protocol("DIS", "")
-    # conn.sendall(message)
     try:
         conn.close()
     except:
         pass
-    print("Disconnect successfully!")
+
+    print("  Disconnected from server.")
+    print("  Program terminated.")
     sys.exit(0)
 
 def setup_signal_handler(conn):
@@ -56,7 +59,7 @@ def get_file_list(conn):
             return file_list
         return None
     except Exception as e:
-        print(f"Error getting file list: {e}")
+        print(f"[ERROR] Unable to get file list from server: {e}")
         return None
 
 def request_file(conn, file_name):
@@ -72,59 +75,77 @@ def request_file(conn, file_name):
             file_size = int(file_size)
 
             if method == "SEN" and status == "OK":
-                progress = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc=file_name)
+                progress = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, colour='green', desc= 2 * ' ' + file_name)
 
                 with open(f"receive_{file_name}", 'wb') as file:
                     data_received = 0
+
                     while True:
                         try:
                             chunk = conn.recv(CHUNKS_SIZE)
                             data_received += len(chunk)
+
                             if data_received == file_size:
                                 break
+
                             file.write(chunk)
                             progress.update(len(chunk))
                         except:
                             progress.close()
-                progress.close()
 
-                print(f"File '{file_name}' received successfully!")
-                return True
+                progress.close()
+                print()
             elif method == "ERR":
-                print(f"Error: File '{file_name}' does not exist on the server.")
-                return False
+                print(f"  [ERROR] <{file_name}> does not exist on the server.")
     except Exception as e:
-        print(f"Error requesting file: {e}")
-        return False
+        print(f"[ERROR] Error requesting file: {e}")
 
 def initiate_connection():
-    global DOWNLOADED_TRACKER
+    global PROCESSED_TRACKER
+    global FILE_LIST
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
         client.connect((HOST, PORT))
+        print(f"Connected to server at {(HOST, PORT)}\n")
+
         setup_signal_handler(client)
 
         file_list = get_file_list(client)
 
         if file_list:
-            print("File list received:")
-            print(file_list)
-            file_sizes = dict(item.split(' ') for item in file_list.split('\n'))
+            print("Available files on server:\n")
+            for line in file_list.splitlines():
+                file_name = line.split()[0]
+                file_size = line.split()[1]
+                print('  - ' + file_name + (16 - len(file_name)) * " " + ": " + file_size)
+
+            print()
+
+            FILE_LIST = [file.split()[0] for file in file_list.splitlines()]
         else:
             print("Failed to retrieve file list.")
             return
+        
+        print("Home:\n")
 
         while True:
             with open(INPUT_FILE, 'r') as file:
                 contents = [line.rstrip() for line in file]
 
-            start_downloading_from = DOWNLOADED_TRACKER
-            for line in contents[start_downloading_from:]:
-                file_name = line
+            start_downloading_from = PROCESSED_TRACKER
+            for item in contents[start_downloading_from:]:
+                file_name = item
 
-                successful = request_file(client, file_name)
-                
-                if successful:
-                    DOWNLOADED_TRACKER += 1
+                if file_name in FILE_LIST and file_name not in DOWNLOADS: 
+                    request_file(client, file_name)
+                    DOWNLOADS.append(file_name)
+
+                elif file_name not in FILE_LIST:
+                    print(f"  [ERROR] <{file_name}> does not exist on the server.\n")
+                else:
+                    print(f"  [WARNING] <{file_name}> has already been requested!\n")
+                    
+                PROCESSED_TRACKER += 1
 
 if __name__ == "__main__":
     print("Connecting to server...")
