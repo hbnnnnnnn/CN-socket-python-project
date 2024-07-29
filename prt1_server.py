@@ -84,8 +84,8 @@ def handle_client(client, addr):
                         
         #wrong format
         except Exception as e:
-            print(f"[DISCONNECTED] {addr} has disconnected!")
             break
+    print(f"[DISCONNECTED] {addr} has disconnected!")
     client.close()
 
 def start_server():
