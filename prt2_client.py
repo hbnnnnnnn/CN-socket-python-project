@@ -271,8 +271,8 @@ def initiate_connection():
         except (KeyboardInterrupt, SystemExit):
             shutdown_event.set()
         
-        input_file_handler.join()
-        server_handler.join()
+        #input_file_handler.join()
+        #server_handler.join()
 
         client.close()
 
