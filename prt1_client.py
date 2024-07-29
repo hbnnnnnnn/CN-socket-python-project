@@ -16,6 +16,8 @@ DELIMITER = ' '
 DOWNLOADS = []
 PROCESSED_TRACKER = 0
 FILE_LIST = []
+PROGRESS_BAR = None
+IS_CLOSED = True
 
 def apply_protocol(method, message):
     message = f"{method}{DELIMITER}{message}"
@@ -28,6 +30,9 @@ def apply_protocol(method, message):
     return header + message_encoded
 
 def disconnect(sig, frame, conn):
+    global IS_CLOSED
+    global PROGRESS_BAR
+
     disconnect_msg = apply_protocol("DIS", "")
     conn.sendall(disconnect_msg)
     
@@ -35,6 +40,10 @@ def disconnect(sig, frame, conn):
         conn.close()
     except:
         pass
+
+    if not IS_CLOSED:
+        PROGRESS_BAR.close()
+        print()
 
     print("  Disconnected from server.")
     print("  Program terminated.")
@@ -67,6 +76,9 @@ def get_file_list(conn):
         return None
 
 def request_file(conn, file_name):
+    global PROGRESS_BAR
+    global IS_CLOSED
+
     try:
         request_message = apply_protocol("GET", file_name)
         conn.sendall(request_message)
@@ -79,7 +91,8 @@ def request_file(conn, file_name):
             file_size = int(file_size)
 
             if method == "SEN" and status == "OK":
-                progress = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, colour='green', desc= 2 * ' ' + file_name)
+                PROGRESS_BAR = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, colour='green', desc= 2 * ' ' + file_name)
+                IS_CLOSED = False
 
                 output_folder = "output"
 
@@ -100,11 +113,14 @@ def request_file(conn, file_name):
                                 break
 
                             file.write(chunk)
-                            progress.update(len(chunk))
+                            PROGRESS_BAR.update(len(chunk))
                         except:
-                            progress.close()
+                            PROGRESS_BAR.close()
+                            IS_CLOSED = True
 
-                progress.close()
+                PROGRESS_BAR.close() 
+                IS_CLOSED = True
+
                 print()
             elif method == "ERR":
                 print(f"  [ERROR] <{file_name}> does not exist on the server.")
