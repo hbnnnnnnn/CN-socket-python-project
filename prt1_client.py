@@ -4,13 +4,14 @@ import sys
 import signal
 import os
 
-PORT = 1603
+PORT = 9999
 HOST = socket.gethostbyname(socket.gethostname())
 
 HEADER = 64
 FORMAT = "utf-8"
 CHUNK_SIZE = 1024
 INPUT_FILE = "input1.txt"
+OUTPUT_FOLDER = "output"
 DELIMITER = ' '
 
 DOWNLOADS = []
@@ -32,14 +33,9 @@ def apply_protocol(method, message):
     return header + message_encoded
 
 def disconnect(sig, frame, conn):
-    global IS_CLOSED
-    global PROGRESS_BAR
-    global TERMINATED
+    global IS_CLOSED, PROGRESS_BAR, TERMINATED
 
     TERMINATED = True
-
-    disconnect_msg = apply_protocol("DIS", "")
-    conn.sendall(disconnect_msg)
     
     try:
         conn.close()
@@ -83,8 +79,7 @@ def get_file_list(conn):
         return None
 
 def request_file(conn, file_name):
-    global PROGRESS_BAR
-    global IS_CLOSED
+    global PROGRESS_BAR, IS_CLOSED
 
     try:
         request_message = apply_protocol("GET", file_name)
@@ -104,13 +99,8 @@ def request_file(conn, file_name):
                 PROGRESS_BAR = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, colour='green', desc= 2 * ' ' + file_name)
                 IS_CLOSED = False
 
-                output_folder = "output"
+                file_path = os.path.join(OUTPUT_FOLDER, f"received_{file_name}")
 
-                if not os.path.exists(output_folder):
-                    os.makedirs(output_folder)
-
-                file_path = os.path.join(output_folder, f"received_{file_name}")
-                              
                 with open(file_path, 'wb') as file:
                     received = 0
 
@@ -149,8 +139,7 @@ def request_file(conn, file_name):
         print(f"[ERROR] Error requesting file: {e}")
 
 def initiate_connection():
-    global PROCESSED_TRACKER
-    global FILE_LIST
+    global PROCESSED_TRACKER, FILE_LIST
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
         client.connect((HOST, PORT))
@@ -176,6 +165,9 @@ def initiate_connection():
         
         print("Home:\n")
 
+        if not os.path.exists(OUTPUT_FOLDER):
+            os.makedirs(OUTPUT_FOLDER)
+
         while True and not TERMINATED:
             with open(INPUT_FILE, 'r') as file:
                 contents = [line.rstrip() for line in file]
@@ -187,7 +179,7 @@ def initiate_connection():
 
                     if file_name in FILE_LIST and file_name not in DOWNLOADS and not TERMINATED: 
                         request_file(client, file_name)
-                        DOWNLOADS.append(file_name)
+                        DOWNLOADS.append(file_name)     
                     elif file_name not in FILE_LIST:
                         print(f"  [ERROR] <{file_name}> does not exist on the server.\n")
                     else:
