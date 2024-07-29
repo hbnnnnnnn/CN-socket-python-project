@@ -141,7 +141,7 @@ def respond_to_server(conn):
                     if not os.path.exists(output_folder):
                         os.makedirs(output_folder)
 
-                    file_path = os.path.join(output_folder, f"receive_{file_name}")
+                    file_path = os.path.join(output_folder, f"received_{file_name}")
 
                     with open(file_path, 'ab') as file:
                         file.write(data)
