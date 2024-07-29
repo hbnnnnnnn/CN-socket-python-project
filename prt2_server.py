@@ -4,7 +4,7 @@ import os
 
 HEADER = 64
 FORMAT = 'utf-8'
-PORT = 1603
+PORT = 9999
 HOST = socket.gethostbyname(socket.gethostname())
 FILE_LIST_PATH = "file_list.txt"
 DELIMITER = ' '
@@ -95,6 +95,7 @@ def process_list(client, addr, download_list, list_lock):
 
                     for _ in range(priority):
                         chunk = output.read(CHUNK_SIZE)
+        
                         if not chunk:
                             client.sendall(apply_protocol("SEN", "END" + DELIMITER + filename))
                             print(f"[SEND] Sent {filename} to {addr} successfully!")
@@ -102,7 +103,10 @@ def process_list(client, addr, download_list, list_lock):
                                 download_list.pop(i)
                             done = True
                             break
-                        client.sendall(apply_protocol("SEF", filename, chunk))
+
+                        data_size = len(chunk)
+
+                        client.sendall(apply_protocol("SEF", f"{filename}{DELIMITER}{data_size}", chunk))
                         sent += 1
 
                 if not done:
