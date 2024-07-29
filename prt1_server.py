@@ -1,16 +1,16 @@
 import socket
 import threading
 import os
-import sys
+
+PORT = 1603
+HOST = socket.gethostbyname(socket.gethostname())
 
 HEADER = 64
 FORMAT = 'utf-8'
 CHUNK_SIZE = 1024
-PORT = 1603
-HOST = socket.gethostbyname(socket.gethostname())
+
 FILE_LIST_PATH = 'file_list.txt'
 DELIMITER = ' '
-PADDING_BYTES = [b'\x00', b'\xFF']
 
 def load_file_list():
     with open(FILE_LIST_PATH, 'r') as file:
