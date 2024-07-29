@@ -9,7 +9,7 @@ HOST = socket.gethostbyname(socket.gethostname())
 
 HEADER = 64
 FORMAT = "utf-8"
-CHUNKS_SIZE = 1024
+CHUNK_SIZE = 1024
 INPUT_FILE = "input1.txt"
 DELIMITER = ' '
 
@@ -43,6 +43,7 @@ def disconnect(sig, frame, conn):
 
     if not IS_CLOSED:
         PROGRESS_BAR.close()
+        IS_CLOSED = True
         print()
 
     print("  Disconnected from server.")
@@ -63,7 +64,7 @@ def get_complete_message(conn, message_length):
 
 def get_file_list(conn):
     try: 
-        header = conn.recv(HEADER).decode(FORMAT)
+        header = get_complete_message(conn, HEADER).decode(FORMAT)
         message_length = int(header[5:])
         message = get_complete_message(conn, message_length).decode(FORMAT)
         method, file_list = message.split(' ', 1)
@@ -83,14 +84,17 @@ def request_file(conn, file_name):
         request_message = apply_protocol("GET", file_name)
         conn.sendall(request_message)
 
-        header = conn.recv(HEADER).decode(FORMAT)
+        header = get_complete_message(conn, HEADER).decode(FORMAT)
+        
         if header.startswith("HEAD"):
             message_length = int(header[5:])
             message = get_complete_message(conn, message_length).decode(FORMAT)
-            method, status, file_size = message.split(' ', 2)
-            file_size = int(file_size)
 
-            if method == "SEN" and status == "OK":
+            method = message[:3]
+
+            if method == "SEN":
+                file_size = int(message.split()[2])
+
                 PROGRESS_BAR = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, colour='green', desc= 2 * ' ' + file_name)
                 IS_CLOSED = False
 
@@ -99,25 +103,35 @@ def request_file(conn, file_name):
                 if not os.path.exists(output_folder):
                     os.makedirs(output_folder)
 
-                file_path = os.path.join(output_folder, f"receive_{file_name}")
+                file_path = os.path.join(output_folder, f"received_{file_name}")
                               
                 with open(file_path, 'wb') as file:
-                    data_received = 0
+                    received = 0
 
-                    while True:
+                    while received != file_size:
                         try:
-                            chunk = conn.recv(CHUNKS_SIZE)
-                            data_received += len(chunk)
-
-                            if data_received == file_size:
+                            header = get_complete_message(conn, HEADER).decode(FORMAT)
+                            if header is None:
                                 break
+                            
+                            if header.startswith("HEAD"):
+                                message_length = int(header[5:])
+                                message = get_complete_message(conn, message_length)
+                                method = message[:3].decode(FORMAT)
 
-                            file.write(chunk)
-                            PROGRESS_BAR.update(len(chunk))
+                            if method == "CHK":
+                                data = message[-CHUNK_SIZE:]
+                                data_size = int(message[4:-CHUNK_SIZE].decode(FORMAT))
+                                data = data[:data_size]
+
+                            received += len(data)
+
+                            file.write(data)
+                            PROGRESS_BAR.update(len(data))
                         except:
                             PROGRESS_BAR.close()
                             IS_CLOSED = True
-
+                
                 PROGRESS_BAR.close() 
                 IS_CLOSED = True
 
@@ -166,7 +180,6 @@ def initiate_connection():
                 if file_name in FILE_LIST and file_name not in DOWNLOADS: 
                     request_file(client, file_name)
                     DOWNLOADS.append(file_name)
-
                 elif file_name not in FILE_LIST:
                     print(f"  [ERROR] <{file_name}> does not exist on the server.\n")
                 else:
