@@ -4,7 +4,7 @@ import sys
 import signal
 import os
 
-PORT = 1603
+PORT = 9999
 HOST = socket.gethostbyname(socket.gethostname())
 
 HEADER = 64
