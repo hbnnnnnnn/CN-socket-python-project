@@ -2,7 +2,7 @@ import socket
 import threading
 import os
 
-PORT = 1603
+PORT = 9999
 HOST = socket.gethostbyname(socket.gethostname())
 
 HEADER = 64
