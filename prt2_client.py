@@ -3,11 +3,10 @@ from tqdm import tqdm
 import sys
 import signal
 import threading
-import time
 from time import sleep
 import os
 
-PORT = 1603
+PORT = 9999
 HOST = socket.gethostbyname(socket.gethostname())
 
 HEADER = 64
@@ -37,11 +36,6 @@ def disconnect(sig, frame):
     for file in DOWNLOADS:
         file[1].close()
     
-    # for i in range(len(DOWNLOADS)):
-    #     sys.stdout.write('\x1b[1A')  # Move cursor up one line
-    #     sys.stdout.write('\x1b[2K')
-    #     sys.stdout.flush()
-    # os.system('cls')
     print()
     print("  Disconnected from server.")
     print("  Program terminated.")
@@ -107,10 +101,10 @@ def respond_to_server(conn):
                     if tag == "OK":
                         file_name, file_size = message.split()[2:]
                         file_size = int(file_size)
-                        # + ' ' * 3
-                        bar_format = '{l_bar}{bar}{r_bar}' 
-                        progress_bar = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc= ' ' * 2 + file_name, colour='green', bar_format=bar_format)
+                        
+                        progress_bar = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc= ' ' * 2 + file_name, colour='green')
                         completed = False
+
                         for file in DOWNLOADS:
                             if file_name == file[0]:
                                 file[1] = progress_bar
@@ -134,14 +128,14 @@ def respond_to_server(conn):
                                 break
 
                 elif method == "SEF":
-                    data = message[-1024:]
-                    data = data.rstrip(b'\x00')
-
-                    message = message[:-1024]
-                    message = message.decode(FORMAT)
-
-                    file_name = message.split()[1]
+                    data = message[-CHUNK_SIZE:]
+                    metadata = message[4:-CHUNK_SIZE].decode(FORMAT).split(DELIMITER)
                     
+                    file_name = metadata[0]
+                    data_size = int(metadata[1])
+
+                    data = data[:data_size]
+
                     output_folder = "output"
 
                     if not os.path.exists(output_folder):
@@ -230,7 +224,7 @@ def update_input_file(conn):
         for _ in range(20):  
             if shutdown_event.is_set():
                 break
-            time.sleep(0.1)
+            sleep(0.1)
 
 def initiate_connection():
     global PROCESSED_TRACKER
@@ -267,7 +261,7 @@ def initiate_connection():
 
         try:
             while not shutdown_event.is_set():
-                time.sleep(0.1)  # Sleep to reduce CPU usage
+                sleep(0.1)
         except (KeyboardInterrupt, SystemExit):
             shutdown_event.set()
         
