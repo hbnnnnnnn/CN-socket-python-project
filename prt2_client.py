@@ -13,6 +13,7 @@ HEADER = 64
 FORMAT = "utf-8"
 CHUNK_SIZE = 1024
 INPUT_FILE = "input.txt"
+OUTPUT_FOLDER = "output"
 DELIMITER = ' '
 
 DOWNLOADS = []
@@ -31,8 +32,14 @@ def apply_protocol(method, message):
 
     return header + message_encoded
 
-def disconnect(sig, frame):    
+def disconnect(sig, frame, conn):    
     shutdown_event.set()
+
+    try:
+        conn.close()
+    except:
+        pass
+
     for file in DOWNLOADS:
         file[1].close()
     
@@ -41,8 +48,8 @@ def disconnect(sig, frame):
     print("  Program terminated.")
     sys.exit(0)
 
-def setup_signal_handler():
-    signal.signal(signal.SIGINT, disconnect)
+def setup_signal_handler(conn):
+    signal.signal(signal.SIGINT, lambda sig, frame: disconnect(sig, frame, conn))
 
 def get_complete_message(conn, message_length):
     data = b''
@@ -61,13 +68,17 @@ def get_complete_message(conn, message_length):
 def get_file_list(conn):
     try:
         header = get_complete_message(conn, HEADER).decode(FORMAT)
+
         if header is None:
             return None
+        
         message_length = int(header[5:])
         message = get_complete_message(conn, message_length).decode(FORMAT)
+
         if message is None:
             return None
-        method, file_list = message.split(' ', 1)
+        
+        method, file_list = message.split(DELIMITER, 1)
 
         if method == "SEN":
             return file_list
@@ -105,10 +116,16 @@ def respond_to_server(conn):
                         progress_bar = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc= ' ' * 2 + file_name, colour='green')
                         completed = False
 
+                        file_path = os.path.join(OUTPUT_FOLDER, f"received_{file_name}")
+
+                        with open(file_path, 'wb') as file:
+                            pass
+
                         for file in DOWNLOADS:
                             if file_name == file[0]:
                                 file[1] = progress_bar
                                 file[2] = completed
+                                break
                     
                     elif tag == "END":
                         file_name = message.split()[2]
@@ -136,12 +153,7 @@ def respond_to_server(conn):
 
                     data = data[:data_size]
 
-                    output_folder = "output"
-
-                    if not os.path.exists(output_folder):
-                        os.makedirs(output_folder)
-
-                    file_path = os.path.join(output_folder, f"received_{file_name}")
+                    file_path = os.path.join(OUTPUT_FOLDER, f"received_{file_name}")
 
                     with open(file_path, 'ab') as file:
                         file.write(data)
@@ -150,32 +162,13 @@ def respond_to_server(conn):
                         if file[0] == file_name:
                             if not shutdown_event.is_set():
                                 file[1].update(len(data))
-                                break
-
-                elif method == "ERR":
-                    message = message.decode(FORMAT)
-                    file_name = message.split()[1]
-
-                    flag = False
-
-                    for file in DOWNLOADS:
-                        if file[2] == True:
-                            flag = True
-                            break
-                            
-                    if flag:
-                        tqdm.write(f"\n  [ERROR] <{file_name}> does not exist on the server.\n")
-                    else: 
-                        tqdm.write(f"  [ERROR] <{file_name}> does not exist on the server.\n")
-                    
+                                break      
     except Exception as e:
         if not shutdown_event.is_set():
-            # print(f"Error in respond_to_server: {e}")
-            pass
+            print(f"Error in respond_to_server: {e}")
 
 def process_input_file(conn):
-    global PROCESSED_TRACKER
-    global FILE_LIST
+    global PROCESSED_TRACKER, FILE_LIST
 
     with open(INPUT_FILE, 'r') as file:
         contents = [line.rstrip() for line in file]
@@ -191,6 +184,7 @@ def process_input_file(conn):
             if file_name in FILE_LIST and file_name not in [item[0] for item in DOWNLOADS]: 
                 request_file(conn, file_name, priority)
                 DOWNLOADS.append([file_name, None, None])
+
             elif file_name not in FILE_LIST:
                 flag = False
 
@@ -204,7 +198,7 @@ def process_input_file(conn):
                 else: 
                     tqdm.write(f"  [ERROR] <{file_name}> does not exist on the server.\n")
             else:
-                flag = False
+                flag = False 
 
                 for file in DOWNLOADS:
                     if file[2] == True:
@@ -227,19 +221,19 @@ def update_input_file(conn):
             sleep(0.1)
 
 def initiate_connection():
-    global PROCESSED_TRACKER
-    global FILE_LIST
+    global PROCESSED_TRACKER, FILE_LIST
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
         client.connect((HOST, PORT))
         print(f"Connected to server at {(HOST, PORT)}\n")
 
-        setup_signal_handler()
+        setup_signal_handler(client)
 
         file_list = get_file_list(client)
 
         if file_list:
             print("Available files on server:\n")
+
             for line in file_list.splitlines():
                 file_name = line.split()[0]
                 file_size = line.split()[1]
@@ -253,6 +247,10 @@ def initiate_connection():
             return
 
         print("Home:\n")
+
+        if not os.path.exists(OUTPUT_FOLDER):
+            os.makedirs(OUTPUT_FOLDER)
+
         server_handler = threading.Thread(target=respond_to_server, args=[client])
         server_handler.start()
 
@@ -263,12 +261,7 @@ def initiate_connection():
             while not shutdown_event.is_set():
                 sleep(0.1)
         except (KeyboardInterrupt, SystemExit):
-            shutdown_event.set()
-        
-        #input_file_handler.join()
-        #server_handler.join()
-
-        client.close()
+            pass
 
 if __name__ == "__main__":
     print("Connecting to server...")
