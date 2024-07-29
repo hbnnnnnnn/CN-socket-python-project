@@ -10,6 +10,7 @@ PORT = 1603
 HOST = socket.gethostbyname(socket.gethostname())
 FILE_LIST_PATH = 'file_list.txt'
 DELIMITER = ' '
+PADDING_BYTES = [b'\x00', b'\xFF']
 
 def load_file_list():
     with open(FILE_LIST_PATH, 'r') as file:
@@ -20,13 +21,26 @@ def file_exists(filename):
         file_list = [line.split()[0] for line in file.read().splitlines()]
     return filename in file_list and os.path.exists(FILE_LIST_PATH)
 
-def apply_protocol(method, data):
-    message = f"{method}{DELIMITER}{data}"
-    message_encoded = message.encode(FORMAT)
-    msg_length = len(message_encoded)
+def apply_protocol(method, data, chunk = b''):
+    if not chunk:
+        message = f"{method}{DELIMITER}{data}"
+        message_encoded = message.encode(FORMAT)
+        
+        msg_length = len(message_encoded)
+    else:
+        message = f"{method}{DELIMITER}{data}{DELIMITER}"
+
+        if len(chunk) < 1024:
+            chunk += b'\x00' * (1024 - len(chunk))
+
+        message_encoded = message.encode(FORMAT) + chunk
+        msg_length = len(message_encoded)
+        
     header = f'HEAD {msg_length}'.encode(FORMAT)
     header += b' ' * (HEADER - len(header))
+
     protocol_message = header + message_encoded
+
     return protocol_message
 
 
@@ -54,9 +68,15 @@ def handle_client(client, addr):
                         
                         with open(filename, 'rb') as output:
                             chunk = output.read(CHUNK_SIZE)
+
                             while chunk:
-                                client.sendall(chunk)
+                                data_size = len(chunk)
+                                
+                                message = apply_protocol("CHK", f"{data_size}", chunk)
+                                client.sendall(message)
+
                                 chunk = output.read(CHUNK_SIZE)
+
                         print(f"[SEND] Sent {filename} to {addr} successfully!")
                     else:
                         client.sendall(apply_protocol("ERR", filename))
