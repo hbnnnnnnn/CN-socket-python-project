@@ -10,7 +10,7 @@ HOST = socket.gethostbyname(socket.gethostname())
 HEADER = 64
 FORMAT = "utf-8"
 CHUNK_SIZE = 1024
-INPUT_FILE = "input1.txt"
+INPUT_FILE = "input.txt"
 OUTPUT_FOLDER = "output"
 DELIMITER = ' '
 
