@@ -73,10 +73,8 @@ def update_list(client, addr, download_list, list_lock):
                 else:
                     print(f"[ERROR] {filename} requested from {addr} does not exist!")
                     client.sendall(apply_protocol("ERR", filename))
-    except Exception as e:
-        #print(f"Error {e}")
-        # continue
-        pass
+    except:
+        break
 
 def process_list(client, addr, download_list, list_lock):
     try:
@@ -113,9 +111,8 @@ def process_list(client, addr, download_list, list_lock):
                     with list_lock:
                         download_list[i] = (filename, priority_key, sent)
                     i += 1
-    except Exception as e:
-        #print(f"Error {e}")
-        pass
+    except:
+        break
 
 def handle_client(client, addr):
     print(f"[NEW CONNECTION] A new connection is accepted from {addr}")
@@ -132,6 +129,7 @@ def handle_client(client, addr):
         list_update.join()
     except Exception as e:
         print(f"Error: {e}")
+        
     print(f"[DISCONNECTED] {addr} has disconnected!")
     client.close()
 
