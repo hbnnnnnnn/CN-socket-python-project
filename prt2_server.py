@@ -17,6 +17,8 @@ PRIORITY = {
     "CRITICAL": 10
 }
 
+shutdown_event = threading.Event()
+
 def load_file_list():
     if os.path.exists(FILE_LIST_PATH):
         with open(FILE_LIST_PATH, 'r') as file:
@@ -55,7 +57,7 @@ def apply_protocol(method, data, chunk = b''):
 
 def update_list(client, addr, download_list, list_lock):
     try:
-        while True:
+        while not shutdown_event.is_set():
             str_header = client.recv(HEADER).decode(FORMAT)
             if not str_header:
                 break
@@ -74,11 +76,12 @@ def update_list(client, addr, download_list, list_lock):
                     print(f"[ERROR] {filename} requested from {addr} does not exist!")
                     client.sendall(apply_protocol("ERR", filename))
     except:
-        pass
+        if not shutdown_event.is_set():
+            shutdown_event.set()
 
 def process_list(client, addr, download_list, list_lock):
     try:
-         while True:
+         while not shutdown_event.is_set():
             i = 0
             while i < len(download_list):
                 with list_lock:
@@ -112,7 +115,8 @@ def process_list(client, addr, download_list, list_lock):
                         download_list[i] = (filename, priority_key, sent)
                     i += 1
     except:
-        pass
+        if not shutdown_event.is_set():
+            shutdown_event.set()
 
 def handle_client(client, addr):
     print(f"[NEW CONNECTION] A new connection is accepted from {addr}")
