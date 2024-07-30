@@ -5,7 +5,7 @@ import signal
 import os
 
 PORT = 9999
-HOST = socket.gethostbyname(socket.gethostname())
+HOST = None
 
 HEADER = 64
 FORMAT = "utf-8"
@@ -188,5 +188,7 @@ def initiate_connection():
                     PROCESSED_TRACKER += 1
 
 if __name__ == "__main__":
+    HOST = input("Enter the host IP: ")
+    HOST = HOST.rstrip(' ')
     print("Connecting to server...")
     initiate_connection()
