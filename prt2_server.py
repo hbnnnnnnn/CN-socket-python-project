@@ -56,7 +56,6 @@ def apply_protocol(method, data, chunk = b''):
 def update_list(client, addr, download_list, list_lock):
     try:
         while True:
-        
             str_header = client.recv(HEADER).decode(FORMAT)
             if not str_header:
                 break
@@ -75,7 +74,7 @@ def update_list(client, addr, download_list, list_lock):
                     print(f"[ERROR] {filename} requested from {addr} does not exist!")
                     client.sendall(apply_protocol("ERR", filename))
     except:
-        break
+        pass
 
 def process_list(client, addr, download_list, list_lock):
     try:
@@ -113,7 +112,7 @@ def process_list(client, addr, download_list, list_lock):
                         download_list[i] = (filename, priority_key, sent)
                     i += 1
     except:
-        break
+        pass
 
 def handle_client(client, addr):
     print(f"[NEW CONNECTION] A new connection is accepted from {addr}")
