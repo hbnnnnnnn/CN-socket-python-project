@@ -90,7 +90,7 @@ def handle_client(client, addr):
 def start_server():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
         server.bind((HOST, PORT))
-        server.listen(1)
+        server.listen(5)
         print(f"Server is listening on {HOST}:{PORT}")
         try:
             while True:
