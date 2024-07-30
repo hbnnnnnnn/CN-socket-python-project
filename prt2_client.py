@@ -6,7 +6,7 @@ import threading
 from time import sleep
 import os
 
-PORT = 9999
+PORT = None
 HOST = None
 
 HEADER = 64
@@ -266,5 +266,6 @@ def initiate_connection():
 if __name__ == "__main__":
     HOST = input("Enter the host IP: ")
     HOST = HOST.replace(" ", "")
+    PORT = input("Enter the host Port: ")
     print("Connecting to server...")
     initiate_connection()
