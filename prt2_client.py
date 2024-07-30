@@ -260,7 +260,7 @@ def initiate_connection():
         try:
             while not shutdown_event.is_set():
                 sleep(0.1)
-        except (KeyboardInterrupt, SystemExit):
+        except (KeyboardInterrupt):
             pass
 
 if __name__ == "__main__":
