@@ -1,5 +1,4 @@
 import socket
-import threading
 import os
 
 PORT = 9999
@@ -91,13 +90,12 @@ def handle_client(client, addr):
 def start_server():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
         server.bind((HOST, PORT))
-        server.listen()
+        server.listen(1)
         print(f"Server is listening on {HOST}:{PORT}")
         try:
             while True:
                 client, addr = server.accept()
-                client_handler = threading.Thread(target=handle_client, args=(client, addr))
-                client_handler.start()
+                handle_client(client, addr)
         except Exception as e:
             print(f"ERROR: {e}")
 
