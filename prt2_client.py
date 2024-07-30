@@ -143,7 +143,6 @@ def respond_to_server(conn):
 
                                 DOWNLOADS[i][2] = True
                                 break
-
                 elif method == "SEF":
                     data = message[-CHUNK_SIZE:]
                     metadata = message[4:-CHUNK_SIZE].decode(FORMAT).split(DELIMITER)
@@ -163,6 +162,8 @@ def respond_to_server(conn):
                             if not shutdown_event.is_set():
                                 file[1].update(len(data))
                                 break      
+                elif method == "ERR":
+                    print(f"  [ERROR] <{file_name}> does not exist on the server.")
     except Exception as e:
         if not shutdown_event.is_set():
             print(f"Error in respond_to_server: {e}")
