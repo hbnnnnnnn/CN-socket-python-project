@@ -2,14 +2,15 @@ import socket
 import threading
 import os
 
-HEADER = 64
-FORMAT = 'utf-8'
 PORT = 9999
 HOST = socket.gethostbyname(socket.gethostname())
+
+HEADER = 64
+FORMAT = 'utf-8'
 FILE_LIST_PATH = "file_list.txt"
 DELIMITER = ' '
-
 CHUNK_SIZE = 1024
+
 PRIORITY = {
     "NORMAL": 1,
     "HIGH": 4,
