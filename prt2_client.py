@@ -264,8 +264,9 @@ def initiate_connection():
             pass
 
 if __name__ == "__main__":
-    HOST = input("Enter the host IP: ")
+    HOST = input("Enter the host IP address: ")
+    PORT = input("Enter the port number: ")
     HOST = HOST.replace(" ", "")
-    PORT = int(input("Enter the host Port: "))
+    PORT = int(PORT.replace(" ", ""))
     print("Connecting to server...")
     initiate_connection()
